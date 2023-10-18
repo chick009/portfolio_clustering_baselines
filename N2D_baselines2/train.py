@@ -31,10 +31,8 @@ def train_autoencoder(train_loader,  model = 'auto_encoder', num_epochs = 100):
 
             # Forward pass
             inputs = inputs.view(inputs.size(0), -1)
+          
             hidden_repr, outputs = model(inputs)
-            print("input shape", inputs.shape)
-            print(type(outputs))
-            print("output shape", outputs.shape)
             # Compute the loss
             loss = loss_fn(outputs, inputs)  # Assuming input data is used as target for reconstruction
             
@@ -47,17 +45,3 @@ def train_autoencoder(train_loader,  model = 'auto_encoder', num_epochs = 100):
         print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item()}")
     return model 
 
-'''
-    # n2d = N2D(model.encoder, n_cluster).to(device)
-
-    # truth, embedding = [], []
-    # n2d.eval()
-    # for batch_data,  in train_loader:
-    #    embedding.append(model.encode(x.to(device)))        
-        truth.append(y)
-    embedding = np.concatenate(embedding)
-    manifold = model.manifold(embedding)
-    pred = model.cluster(manifold).argmax(1)
-
-    return pred
-'''

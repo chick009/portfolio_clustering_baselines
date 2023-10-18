@@ -18,15 +18,12 @@ for start, end in data_combination:
 
     total_labels = []
     
-    for cluster in ['K-Means', 'Gaussian mixture model']:
+    for cluster in ['K-Means', 'Gaussian mixture model', 'Agglomerative Clustering']:
         compare_df = process_data(compare_df)
         labels = cluster_approaches(compare_df, 8, cluster)
         total_labels.append(labels)
 
-    print("congrats")
+   
     batch_data, train_loader, stock_list = data_prep(df, start, end)
-    print("finished")
-    print(batch_data.shape)
-    model = train_autoencoder(train_loader, model = 'auto_encoder', num_epochs = 100)
-    print("train end model")
-    pred = evaluate(batch_data, model, total_labels, device = 'cpu')
+    model = train_autoencoder(train_loader, model = 'auto_encoder', num_epochs = 3)
+    pred = evaluate(train_loader, model, total_labels, device = 'cpu')
