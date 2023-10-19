@@ -1,6 +1,11 @@
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
+
+from scipy.optimize import minimize
+from sklearn.metrics.pairwise import pairwise_kernels
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from N2D import N2D
 
 def multi_label_cross_entropy_loss(predictions, targets):
@@ -17,7 +22,7 @@ def multi_label_cross_entropy_loss(predictions, targets):
     
     return loss
 
-def evaluate(batch_data, model, total_labels, device = 'cpu'):
+def evaluate(batch_data, model, model_name, total_labels):
     # Get the sampling data 
 
     # K-Means Clustering (Labels) 
@@ -30,20 +35,89 @@ def evaluate(batch_data, model, total_labels, device = 'cpu'):
     embedding = []
     model = N2D(model, 8)
     
+    print(model)
     for y in batch_data:
       data = y[0].to(torch.float32)
-      data = data.view(data.size(0), -1)
-      
+
+      if model_name == 'auto_encoder':
+        data = data.view(data.size(0), -1)
       hidden_repr, _ = model.encoder(data.to('cpu'))
+      print("hidden_repr", hidden_repr.shape)
       embedding.append(hidden_repr.detach().numpy())
 
+  
     embedding = np.concatenate(embedding)
+    if model_name == 'tmp_auto_encoder':
+      embedding = embedding[:, -1, :]
     manifold = model.manifold(embedding)
     pred = model.cluster(manifold).argmax(1)
-    print(pred)
+
     # Evaluating the final prediction similarity along with 
     print(f'KMeans CE Loss: {multi_label_cross_entropy_loss(pred, kmean_labels)}')
     print(f'GMM CE Loss: {multi_label_cross_entropy_loss(pred, gmm_labels)}')
     print(f'Agglo CE Loss: {multi_label_cross_entropy_loss(pred, agglo_labels)}')
 
     return pred 
+
+def calculate_portfolio_variance(weights, cov_matrix):
+    return np.dot(weights.T, np.dot(cov_matrix, weights))
+
+def compute_metrics(returns):
+    # Store metrics in a dictionary 
+    metrics = dict()
+    
+    # Add computation of sharpe ratio and sortino ratio
+    metrics["Cumulative Return"] = (returns + 1).cumprod().iloc[-1]
+    metrics["Sharpe Ratio"] = np.mean(returns) * np.sqrt(252) / np.std(returns)
+    metrics["Sortino Ratio"] = np.mean(returns) * np.sqrt(252) / np.std(returns > 0)
+    
+    return metrics
+
+def calculate_cumulative_return(df, weights = None):
+
+    # Calculate daily returns
+    daily_returns = df.pct_change() + 1
+    daily_returns = daily_returns.dropna(how = 'all')
+
+    # Assume equal weighting for all stocks
+    if weights is None:
+        weights = np.repeat(1/df.shape[1], df.shape[1])
+    
+    # Calculate portfolio return
+    portfolio_return = (weights * daily_returns).sum(axis=1)
+    
+    # Calculate cumulative return
+    cumulative_return = portfolio_return.cumprod()
+    
+    # Calculate the metrics from the returns
+    metrics = compute_metrics(portfolio_return - 1)
+    
+    return metrics
+
+def calculate_expected_return(weights, returns):
+    return np.sum(returns.mean() * weights) * 252
+
+def negative_sharpe_ratio(weights, returns, cov_matrix, risk_free_rate):
+    portfolio_return = calculate_expected_return(weights, returns)
+    portfolio_volatility = np.sqrt(calculate_portfolio_variance(weights, cov_matrix))
+    return -(portfolio_return - risk_free_rate) / portfolio_volatility
+
+def optimize_portfolio(weights, returns, cov_matrix, risk_free_rate):
+    num_assets = len(returns.columns)
+    args = (returns, cov_matrix, risk_free_rate)
+    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+    bounds = tuple((0,1) for asset in range(num_assets))
+    result = minimize(negative_sharpe_ratio, weights, args=args, 
+                      method='SLSQP', bounds=bounds, constraints=constraints)
+    return result
+
+def calculate_optimal_portfolio(df, cov_matrix = None):
+    returns = df.pct_change().dropna(how='all')
+    if cov_matrix is None:
+        cov_matrix = returns.cov()
+    num_assets = len(returns.columns)
+    risk_free_rate = 0.01 # Assuming a risk-free rate of 1%
+    weights = np.random.random(num_assets)
+    weights /= np.sum(weights)
+    result = optimize_portfolio(weights, returns, cov_matrix, risk_free_rate)
+    return result.x

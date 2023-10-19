@@ -6,16 +6,20 @@ import torch.nn.functional as F
 
 from torch.utils.data import TensorDataset, DataLoader
 from auto_encoder import AutoEncoder
+from tmp_auto_encoder import TmpAutoEncoder
 from N2D import N2D
 
-def train_autoencoder(train_loader,  model = 'auto_encoder', num_epochs = 100):
+def train_autoencoder(train_loader,  model_name = 'auto_encoder', num_epochs = 100):
     first_batch = next(iter(train_loader))
     data = first_batch[0]
     batch, seq_len, dim = data.shape
 
-    if model == 'auto_encoder':
+    if model_name == 'auto_encoder':
         model = AutoEncoder(seq_len * dim)
     
+    if model_name == 'tmp_auto_encoder':
+        model = TmpAutoEncoder(dim)
+
     # Define your loss function
     loss_fn = nn.MSELoss()
 
@@ -30,8 +34,10 @@ def train_autoencoder(train_loader,  model = 'auto_encoder', num_epochs = 100):
             optimizer.zero_grad()  # Zero the gradients
 
             # Forward pass
-            inputs = inputs.view(inputs.size(0), -1)
-          
+            if model_name == 'auto_encoder':
+                print('yes')
+                inputs = inputs.view(inputs.size(0), -1)
+            print(inputs.shape)
             hidden_repr, outputs = model(inputs)
             # Compute the loss
             loss = loss_fn(outputs, inputs)  # Assuming input data is used as target for reconstruction
