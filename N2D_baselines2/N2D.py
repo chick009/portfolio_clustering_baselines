@@ -14,11 +14,8 @@ class N2D(nn.Module):
         self.gmm = None
     
     def forward(self, x):
-        print('before encode shape', x.shape)
         x = self.encode(x)
-        print('before manifold shape', x.shape)
         x = self.manifold(x)
-        print('before cluster shape', x.shape)
         cluster = self.cluster(x)
         return cluster
 

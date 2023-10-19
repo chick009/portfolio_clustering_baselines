@@ -35,9 +35,9 @@ def train_autoencoder(train_loader,  model_name = 'auto_encoder', num_epochs = 1
 
             # Forward pass
             if model_name == 'auto_encoder':
-                print('yes')
+        
                 inputs = inputs.view(inputs.size(0), -1)
-            print(inputs.shape)
+
             hidden_repr, outputs = model(inputs)
             # Compute the loss
             loss = loss_fn(outputs, inputs)  # Assuming input data is used as target for reconstruction

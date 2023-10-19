@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from scipy.optimize import minimize
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from scipy.spatial.distance import cdist
 from N2D import N2D
 
 def multi_label_cross_entropy_loss(predictions, targets):
@@ -35,14 +36,13 @@ def evaluate(batch_data, model, model_name, total_labels):
     embedding = []
     model = N2D(model, 8)
     
-    print(model)
     for y in batch_data:
       data = y[0].to(torch.float32)
 
       if model_name == 'auto_encoder':
         data = data.view(data.size(0), -1)
       hidden_repr, _ = model.encoder(data.to('cpu'))
-      print("hidden_repr", hidden_repr.shape)
+      
       embedding.append(hidden_repr.detach().numpy())
 
   
@@ -57,8 +57,32 @@ def evaluate(batch_data, model, model_name, total_labels):
     print(f'GMM CE Loss: {multi_label_cross_entropy_loss(pred, gmm_labels)}')
     print(f'Agglo CE Loss: {multi_label_cross_entropy_loss(pred, agglo_labels)}')
 
+    
     return pred 
 
+def select_stocks(df, cluster_labels):
+    selected_stocks = []
+    transposed_df = df.transpose()
+    # Iterate over each cluster
+    
+    for cluster in range(8):
+        # Get the indices of stocks belonging to the current cluster
+        cluster_indices = np.where(cluster_labels == cluster)[0]
+
+        # Calculate the centroid of the current cluster
+        cluster_centroid = np.mean(transposed_df.iloc[cluster_indices], axis=0)
+
+        # Calculate the Euclidean distance between each stock in the cluster and the centroid
+        distances = cdist(transposed_df.iloc[cluster_indices], [cluster_centroid], metric='euclidean')
+
+        # Find the index of the stock with the minimum distance to the centroid
+        representative_stock_index = cluster_indices[np.argmin(distances)]
+
+        # Add the representative stock to the selected stocks list
+        selected_stocks.append(transposed_df.index[representative_stock_index])
+
+    return selected_stocks
+    
 def calculate_portfolio_variance(weights, cov_matrix):
     return np.dot(weights.T, np.dot(cov_matrix, weights))
 
