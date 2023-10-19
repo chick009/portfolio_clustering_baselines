@@ -64,7 +64,7 @@ def select_stocks(df, cluster_labels):
     selected_stocks = []
     transposed_df = df.transpose()
     # Iterate over each cluster
-    
+    print(transposed_df.shape)
     for cluster in range(8):
         # Get the indices of stocks belonging to the current cluster
         cluster_indices = np.where(cluster_labels == cluster)[0]

@@ -10,7 +10,7 @@ def data_prep(df, start = '2013-01-01', end = '2020-01-01', batch_size = 8):
     # Initialize a 3D array that can be appended in the third dimension
     batch_data = []
     stock_list = []
-
+    close_price_df = pd.DataFrame()
     # Iterate over each stock's data
     for stock in df.columns:
        
@@ -19,15 +19,17 @@ def data_prep(df, start = '2013-01-01', end = '2020-01-01', batch_size = 8):
         df_pivoted.index = df_pivoted['first']
         df_piv = df_pivoted.drop(columns= ['first'])
         df_piv = df_piv.loc[start: end]        
-        
+
         # 1. Check if the data has missing values -> if yes, then continue
         if df_piv.isnull().any().any():
             continue
+
+        close_price_df[stock] = df_piv['Adj Close']
         
         # 2. Scale the data using min_max_scaler to range(0, 1)
         min_max_scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_data = min_max_scaler.fit_transform(df_piv.values)
-        
+      
         # 3. Add the data into a batch
         batch_data.append(scaled_data)
         stock_list.append(stock)
@@ -41,7 +43,7 @@ def data_prep(df, start = '2013-01-01', end = '2020-01-01', batch_size = 8):
     # Create the DataLoader
     train_loader = DataLoader(dataset, batch_size = batch_size, shuffle=True)
 
-    return np.array(batch_data), train_loader, stock_list
+    return np.array(batch_data), close_price_df, train_loader, stock_list
 
 
 def process_data(df):
