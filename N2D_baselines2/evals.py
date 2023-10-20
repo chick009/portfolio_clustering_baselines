@@ -52,20 +52,19 @@ def evaluate(batch_data, model, model_name, total_labels):
     manifold = model.manifold(embedding)
     pred = model.cluster(manifold).argmax(1)
 
-    # Evaluating the final prediction similarity along with 
-    print(f'KMeans CE Loss: {multi_label_cross_entropy_loss(pred, kmean_labels)}')
-    print(f'GMM CE Loss: {multi_label_cross_entropy_loss(pred, gmm_labels)}')
-    print(f'Agglo CE Loss: {multi_label_cross_entropy_loss(pred, agglo_labels)}')
+    k_mean_ce_loss = multi_label_cross_entropy_loss(pred, kmean_labels)
+    gmm_ce_loss = multi_label_cross_entropy_loss(pred, gmm_labels)
+    agglo_ce_loss = multi_label_cross_entropy_loss(pred, agglo_labels)
 
-    
-    return pred 
+    return pred, k_mean_ce_loss, gmm_ce_loss, agglo_ce_loss
 
 def select_stocks(df, cluster_labels):
     selected_stocks = []
     transposed_df = df.transpose()
     # Iterate over each cluster
-    print(transposed_df.shape)
-    for cluster in range(8):
+    nb_cluster = len(np.unique(cluster_labels))
+    
+    for cluster in range(nb_cluster):
         # Get the indices of stocks belonging to the current cluster
         cluster_indices = np.where(cluster_labels == cluster)[0]
 
