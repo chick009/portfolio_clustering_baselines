@@ -49,7 +49,6 @@ def cluster_approaches(df, num_clusters, cluster_approach='KMeans'):
 
     # Fit the clustering model and obtain the cluster labels for each stock
     transposed_df = df.transpose()
-    print('transposed_df', transposed_df.shape)
     cluster_labels = cluster_model.fit_predict(transposed_df)
     # selected_stocks = []
 
