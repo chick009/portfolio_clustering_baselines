@@ -45,7 +45,7 @@ class AutoEncoder(nn.Module):
                                      Decoder(int(flatten_dim // 1.25), int(flatten_dim), True))
             
     def forward(self, x):
-        
+        x = x.to('cuda:0')
         x  = self.encoder(x) 
         gen = self.decoder(x)
         return x, gen

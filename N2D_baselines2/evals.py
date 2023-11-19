@@ -43,7 +43,7 @@ def evaluate(batch_data, model, model_name, total_labels):
         data = data.view(data.size(0), -1)
       hidden_repr, _ = model.encoder(data.to('cpu'))
       
-      embedding.append(hidden_repr.detach().numpy())
+      embedding.append(hidden_repr.to('cpu').detach().numpy())
 
   
     embedding = np.concatenate(embedding)
