@@ -31,7 +31,7 @@ class N2D(nn.Module):
         print("umap shape", x.shape)
         if self.umap is None:
             print('fit the UMAP ...')
-            self.umap = UMAP(20, self.n_cluster).fit(x)
+            self.umap = UMAP(5, self.n_cluster).fit(x)
         
         x = self.umap.transform(x)
         return x

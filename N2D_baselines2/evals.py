@@ -23,7 +23,7 @@ def multi_label_cross_entropy_loss(predictions, targets):
     
     return loss
 
-def evaluate(batch_data, model, model_name, total_labels):
+def evaluate(args, batch_data, model, model_name, total_labels):
     # Get the sampling data 
 
     # K-Means Clustering (Labels) 
@@ -34,7 +34,7 @@ def evaluate(batch_data, model, model_name, total_labels):
     # Agglomerative Clustering (Labels)
 
     embedding = []
-    model = N2D(model, 8)
+    model = N2D(model, args.k)
     
     for y in batch_data:
       data = y[0].to(torch.float32)

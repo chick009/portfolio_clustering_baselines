@@ -11,7 +11,7 @@ from tmp_auto_encoder import TmpAutoEncoder
 from N2D import N2D
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-def train_autoencoder(train_loader, model = None, model_name = 'auto_encoder', optimizer_choice = 'ADAM', num_epochs = 100, patience = 5):
+def train_autoencoder(train_loader, model = None, model_name = 'auto_encoder', optimizer_choice = 'SGD', num_epochs = 100, patience = 6):
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
 
@@ -27,7 +27,7 @@ def train_autoencoder(train_loader, model = None, model_name = 'auto_encoder', o
         model = AutoEncoder(seq_len * dim).to(device)
     
     if model_name == 'tmp_auto_encoder' and model == None:
-        model = TmpAutoEncoder(dim).to(device)
+        model = TmpAutoEncoder(dim, seq_len).to(device)
 
     # Define your loss function
     loss_fn = nn.MSELoss()

@@ -2,7 +2,11 @@ import argparse
 import pandas as pd
 import numpy as np
 import warnings
-
+ # Show the heatmaps
+import seaborn as sns
+import matplotlib
+matplotlib.use('Agg')  # Set the backend to Agg
+import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
 
 from data_prep import data_prep, process_data
@@ -10,16 +14,19 @@ from train import train_autoencoder
 from evals import evaluate, select_stocks, calculate_cumulative_return, calculate_optimal_portfolio
 from normal_clustering import cluster_approaches
 from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import silhouette_score
 
 def get_args():
     args = argparse.ArgumentParser()
 
-    args.add_argument('-bs', type=str, default='5, 20, 50')
-    args.add_argument('-epoch', type = int, default = 30)
-    args.add_argument('-k', type = int, default = 15, help = 'num of cluster')
-    args.add_argument('-p', type = int, default = 3, help = 'patience for early stopping')
-    args.add_argument('-eval_path', type = str, default = 'sp500.csv')
-    args.add_argument('-input_path', type = str, default = 'sp500_setB(2).csv')
+    args.add_argument('-bs', type=str, default='5, 15')
+    args.add_argument('-epoch', type = int, default = 50)
+    args.add_argument('-k', type = int, default = 5, help = 'num of cluster')
+    args.add_argument('-p', type = int, default = 6, help = 'patience for early stopping')
+    args.add_argument('-optim', type = str, default = 'ADAM', help = 'Optimizer Choices')
+    args.add_argument('-eval_path', type = str, default = 'DJones.csv')
+    args.add_argument('-input_path', type = str, default = 'DJones_setB.csv')
     args.add_argument('-model', type = str, default = 'tmp_auto_encoder', help = 'auto_encoder or tmp_auto_encoder')
     args = args.parse_args()
 
@@ -65,9 +72,9 @@ def main():
 
         for batch_sizes in batch_size_lst:
             batch_data, close_price_df, train_loader, stock_list = data_prep(df, start, end, batch_sizes)
-            model = train_autoencoder( train_loader, model, model_name, num_epochs = args.epoch).to("cuda:0")
+            model = train_autoencoder( train_loader, model, model_name, num_epochs = args.epoch, optimizer_choice = args.optim).to("cuda:0")
         
-        pred, k_mean_ce, gmm_ce, agglo_ce = evaluate(train_loader, model, model_name, total_labels)
+        pred, k_mean_ce, gmm_ce, agglo_ce = evaluate(args, train_loader, model, model_name, total_labels)
             # Evaluating the final prediction similarity along with 
         print(f'KMeans CE Loss: {k_mean_ce}')
         print(f'GMM CE Loss: {gmm_ce}')
@@ -84,6 +91,19 @@ def main():
         selected_stock_kmean = select_stocks(test_df, total_labels[0])
         selected_stock_gmm = select_stocks(test_df, total_labels[1])
         selected_stock_agglo = select_stocks(test_df, total_labels[2])
+        
+        orders = ['dc', 'kmean', 'gmm', 'agglo']
+        for idx, selected_stocks in enumerate([selected_stock_dc, selected_stock_kmean, selected_stock_gmm, selected_stock_agglo]) :
+            # scaler = MinMaxScaler()
+            # tmp_df = compare_df
+            # tmp_df[selected_df] = scaler.fit_transform(compare_df[selected_df])
+            heatmap = sns.heatmap(close_price_df[selected_stocks].corr())
+            output_folder = r'C:\Users\johnn\final_year_project\N2D_baselines2\heatmaps'
+            output_filename = f'{orders[idx]}_{interval}_epoch{args.epoch}_{args.input_path}_clusters{args.k}_{args.model}_{start}_{end}_heatmap.png'
+            output_filepath = f'{output_folder}/{output_filename}'
+            heatmap.figure.savefig(output_filepath)
+            plt.clf()
+
 
         # Calculate the metrics
         metrics_ew = calculate_cumulative_return(compare_df[selected_stock_dc].loc[compare_start:compare_end], weights = None)

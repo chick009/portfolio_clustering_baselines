@@ -22,17 +22,21 @@ class Decoder(nn.Module):
 
 
 class TmpAutoEncoder(nn.Module):
-    def __init__(self, input_size):
+    def __init__(self, input_size, seq_len):
         super(TmpAutoEncoder, self).__init__()
         self.encoder = nn.Sequential(
             Encoder(input_size, 200),
+            nn.BatchNorm1d(seq_len),
             Encoder(200, 100),
+            nn.Dropout(0.1),
             Encoder(100, 50)
         )
         
         self.decoder = nn.Sequential(
+            nn.BatchNorm1d(seq_len),
             Decoder(50, 100),
             Decoder(100, 200),
+            nn.Dropout(0.1),
             Decoder(200, input_size)
         )
 
