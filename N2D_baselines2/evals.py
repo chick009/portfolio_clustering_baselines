@@ -67,7 +67,9 @@ def select_stocks(df, cluster_labels):
     for cluster in range(nb_cluster):
         # Get the indices of stocks belonging to the current cluster
         cluster_indices = np.where(cluster_labels == cluster)[0]
-
+        
+        if not np.any(cluster_labels[cluster_indices] == cluster):
+            continue
         # Calculate the centroid of the current cluster
         cluster_centroid = np.mean(transposed_df.iloc[cluster_indices], axis=0)
 
