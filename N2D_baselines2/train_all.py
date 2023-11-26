@@ -46,18 +46,18 @@ def pretrain_autoencoder(trainloader, args, verbose=True):
     
     return tae 
 
-def train_ClusterNET(trainloader, args, verbose):
+def train_ClusterNET(trainloader, trained_model, data_tensor, args):
     """
     function for the ClusterNet Training
     """
-    model = ClusterNet(args)
+    model = ClusterNet(args, trained_model)
     model = model.to(args.device)
-
+    model.init_centroids(data_tensor)
     # MSE Loss Function
     loss_ae = nn.MSELoss()
     loss_kl = nn.KLDivLoss()
     # Optimizer
-    optimizer = torch.optim.Adam(tae.parameters(), weight_decay = 0.0001)
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay = 0.0001)
     
     # Make the model in training version
     model.train()
@@ -65,18 +65,19 @@ def train_ClusterNET(trainloader, args, verbose):
     # Training with the data
     for epoch in range(50):
         all_loss = 0
-        for batch_idx, (inputs, _) in enumerate(trainloader):
-            inputs = inputs.type(torch.FloatTensor).to(args.device)
+        for batch_idx, inputs in enumerate(trainloader):
+            inputs = inputs[0].to(torch.float32).to('cuda:0')
             optimizer.zero_grad()
             z, x_reconstr, Q, P = model(inputs)
 
-            loss_mse = loss_ae(inputs.squeeze(1), x_reconstr)
-            loss_kl = loss_kl(P, Q)
-            total_loss = loss_mse + loss_kl
+            loss_mse = loss_ae(inputs, x_reconstr.squeeze(3))
+            loss_kl2 = loss_kl(P, Q)
+            total_loss = loss_mse + loss_kl2
 
             total_loss.backward()
             optimizer.step()
-
+            preds = torch.max(Q, dim=1)[1]
+            print(preds)
             all_loss += loss_mse.item()
         
         print(f"For epoch {epoch}, ClusterNet Loss is {all_loss/ batch_idx + 1}")

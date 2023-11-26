@@ -21,7 +21,6 @@ class TAE_encoder(nn.Module):
         stride_height, stride_width = self.pooling, 1
 
         padding_height = ((input_shape[1] - 1) * stride_height + kernel_height - input_shape[1]) // 2 + 1
-        print("1", padding_height)
         self.conv_layer = nn.Conv2d(
                 in_channels = self.feats,  # To be changed, 
                 out_channels = self.filter_1,
@@ -54,16 +53,15 @@ class TAE_encoder(nn.Module):
         # Expand dimension to (B x F x S x 1)
         x = torch.unsqueeze(x, dim = 3)
  
-        print(x.shape)
         # Outputs: (B x S x 1 x filter_1)
         out_cnn = self.conv_layer(x)
-        print(out_cnn.shape)
+
         # Outputs: (B x S x filter_1)
         out_cnn = out_cnn.view(out_cnn.shape[0],  out_cnn.shape[2], out_cnn.shape[1])
-        print(out_cnn.shape)
+
         # Outputs = (B x S x 2 * F) -> meaning returning sequence
         out_lstm1, _ = self.lstm_1(out_cnn)
-        print("outLstm", out_lstm1.shape)
+
         # Outputs = (B x S x Hidden Units)        
         out_lstm1 = torch.sum(
             out_lstm1.view(
@@ -80,7 +78,6 @@ class TAE_encoder(nn.Module):
             ),
             dim = 2,
         )
-        print(features.shape)
 
         return features
 
@@ -114,7 +111,7 @@ class TAE_decoder(nn.Module):
 
         # Output Shape (B x F x S x 1)
         out_deconv = self.deconv_layer(x)[:, :, :self.input_size[1], :]
-        print("out", out_deconv.shape)
+
         # Output Shape (B x S x F x 1)
         out_deconv = out_deconv.permute((0, 2, 1, 3))
         # print("out deconv shape", out_deconv.shape)
@@ -156,6 +153,59 @@ class TAE(nn.Module):
 
         return features.squeeze(2), out_deconv
     
+def compute_similarity(z, centroids, similarity="EUC"):
+    """
+    Function that compute distance between a latent vector z and the clusters centroids.
+
+    similarity : can be in [CID,EUC,COR] :  euc for euclidean,  cor for correlation and CID
+                for Complexity Invariant Similarity.
+    z shape : (batch_size, n_hidden)
+    centroids shape : (n_clusters, n_hidden)
+    output : (batch_size , n_clusters)
+    """
+    n_clusters, n_hidden = centroids.shape[0], centroids.shape[1]
+    bs = z.shape[0]
+
+    if similarity == "CID":
+        CE_z = compute_CE(z).unsqueeze(1)  # shape (batch_size , 1)
+        CE_cen = compute_CE(centroids).unsqueeze(0)  ## shape (1 , n_clusters )
+        z = z.unsqueeze(0).expand((n_clusters, bs, n_hidden))
+        mse = torch.sqrt(torch.sum((z - centroids.unsqueeze(1)) ** 2, dim=2))
+        CE_z = CE_z.expand((bs, n_clusters))  # (bs , n_clusters)
+        CE_cen = CE_cen.expand((bs, n_clusters))  # (bs , n_clusters)
+        CF = torch.max(CE_z, CE_cen) / torch.min(CE_z, CE_cen)
+        return torch.transpose(mse, 0, 1) * CF
+
+    elif similarity == "EUC":
+        z = z.expand((n_clusters, bs, n_hidden))
+
+        mse = torch.sqrt(torch.sum((z - centroids) ** 2, dim=2))
+        
+        return torch.transpose(mse, 0, 1)
+
+    elif similarity == "COR":
+        std_z = (
+            torch.std(z, dim=1).unsqueeze(1).expand((bs, n_clusters))
+        )  ## (bs,n_clusters)
+        mean_z = (
+            torch.mean(z, dim=1).unsqueeze(1).expand((bs, n_clusters))
+        )  ## (bs,n_clusters)
+        std_cen = (
+            torch.std(centroids, dim=1).unsqueeze(0).expand((bs, n_clusters))
+        )  ## (bs,n_clusters)
+        mean_cen = (
+            torch.mean(centroids, dim=1).unsqueeze(0).expand((bs, n_clusters))
+        )  ## (bs,n_clusters)
+        ## covariance
+        z_expand = z.unsqueeze(1).expand((bs, n_clusters, n_hidden))
+        cen_expand = centroids.unsqueeze(0).expand((bs, n_clusters, n_hidden))
+        prod_expec = torch.mean(
+            z_expand * cen_expand, dim=2
+        )  ## (bs , n_clusters)
+        pearson_corr = (prod_expec - mean_z * mean_cen) / (std_z * std_cen)
+    
+    return torch.sqrt(2 * (1 - pearson_corr))
+
 class ClusterNet(nn.Module):
     """
     class for the defintion of the DTC model
@@ -164,96 +214,51 @@ class ClusterNet(nn.Module):
     alpha : parameter alpha for the t-student distribution.
     """
 
-    def __init__(self, args):
+    def __init__(self, args, trained_model):
         super().__init__()
 
         ## init with the pretrained autoencoder model
-        self.tae = TAE(args)
-        self.tae.load_state_dict(
-            torch.load(args.path_weights_ae, map_location=args.device)
-        )
+        #self.tae = TAE(args)
+        #self.tae.load_state_dict(
+        #    torch.load(args.path_weights_ae, map_location=args.device)
+        #)
+        self.tae = trained_model
 
         ## clustering model
         self.alpha_ = args.alpha
         self.centr_size = args.n_hidden
         self.n_clusters = args.n_clusters
-        self.device = args.device
+        self.device = 'cuda:0'
         self.similarity = args.similarity
-
-        
-    def compute_similarity(z, centroids, similarity="EUC"):
-        """
-        Function that compute distance between a latent vector z and the clusters centroids.
-
-        similarity : can be in [CID,EUC,COR] :  euc for euclidean,  cor for correlation and CID
-                    for Complexity Invariant Similarity.
-        z shape : (batch_size, n_hidden)
-        centroids shape : (n_clusters, n_hidden)
-        output : (batch_size , n_clusters)
-        """
-        n_clusters, n_hidden = centroids.shape[0], centroids.shape[1]
-        bs = z.shape[0]
-
-        if similarity == "CID":
-            CE_z = compute_CE(z).unsqueeze(1)  # shape (batch_size , 1)
-            CE_cen = compute_CE(centroids).unsqueeze(0)  ## shape (1 , n_clusters )
-            z = z.unsqueeze(0).expand((n_clusters, bs, n_hidden))
-            mse = torch.sqrt(torch.sum((z - centroids.unsqueeze(1)) ** 2, dim=2))
-            CE_z = CE_z.expand((bs, n_clusters))  # (bs , n_clusters)
-            CE_cen = CE_cen.expand((bs, n_clusters))  # (bs , n_clusters)
-            CF = torch.max(CE_z, CE_cen) / torch.min(CE_z, CE_cen)
-            return torch.transpose(mse, 0, 1) * CF
-
-        elif similarity == "EUC":
-            z = z.expand((n_clusters, bs, n_hidden))
-            mse = torch.sqrt(torch.sum((z - centroids.unsqueeze(1)) ** 2, dim=2))
-            return torch.transpose(mse, 0, 1)
-
-        elif similarity == "COR":
-            std_z = (
-                torch.std(z, dim=1).unsqueeze(1).expand((bs, n_clusters))
-            )  ## (bs,n_clusters)
-            mean_z = (
-                torch.mean(z, dim=1).unsqueeze(1).expand((bs, n_clusters))
-            )  ## (bs,n_clusters)
-            std_cen = (
-                torch.std(centroids, dim=1).unsqueeze(0).expand((bs, n_clusters))
-            )  ## (bs,n_clusters)
-            mean_cen = (
-                torch.mean(centroids, dim=1).unsqueeze(0).expand((bs, n_clusters))
-            )  ## (bs,n_clusters)
-            ## covariance
-            z_expand = z.unsqueeze(1).expand((bs, n_clusters, n_hidden))
-            cen_expand = centroids.unsqueeze(0).expand((bs, n_clusters, n_hidden))
-            prod_expec = torch.mean(
-                z_expand * cen_expand, dim=2
-            )  ## (bs , n_clusters)
-            pearson_corr = (prod_expec - mean_z * mean_cen) / (std_z * std_cen)
-        
-        return torch.sqrt(2 * (1 - pearson_corr))
     
     def init_centroids(self, x):
         """
         This function initializes centroids with agglomerative clustering
         + complete linkage.
         """
-        z, _ = self.tae(x.squeeze().unsqueeze(1).detach())
+        x = x.to('cuda:0')
+
+        z, _ = self.tae(x)
+ 
         z_np = z.detach().cpu()
+       
+        # results = self.compute_similarity(z_np, z_np)
+        
         assignements = AgglomerativeClustering(
-            n_clusters=2, linkage="complete", affinity="precomputed"
+            n_clusters=10, linkage="complete", affinity="precomputed"
         ).fit_predict(
-            compute_similarity(z_np, z_np, similarity=self.similarity)
+            compute_similarity(z_np, z_np)
         )
 
         centroids_ = torch.zeros(
-            (self.n_clusters, self.centr_size), device=self.device
+            (self.n_clusters, z.shape[1], self.centr_size), device=self.device
         )
 
         for cluster_ in range(self.n_clusters):
             index_cluster = [
                 k for k, index in enumerate(assignements) if index == cluster_
             ]
-            centroids_[cluster_] = torch.mean(z.detach()[index_cluster], dim=0)
+            centroids_[cluster_] = torch.mean(z.detach()[index_cluster], dim=0).unsqueeze(1)
 
         self.centroids = nn.Parameter(centroids_)
 
@@ -261,13 +266,25 @@ class ClusterNet(nn.Module):
 
         z, x_reconstr = self.tae(x)
         z_np = z.detach().cpu()
-
-        similarity = self.compute_similarity(
+        # print("centroid shape", self.centroids.shape)
+        # print("input shape", z.shape)
+        
+        '''
+        similarity = compute_similarity(
             z, self.centroids, similarity=self.similarity
         )
-
+        '''
+        # print("before shape", z.shape)
+        # z = z.reshape((z.shape[1], z.shape[0]))
+        # print("changed shape", z.unsqueeze(2).shape)
+        z = z.unsqueeze(2)
+        
+        
+        print(z.shape)
+        print(self.centroids.shape)
+        dist = torch.norm(z.unsqueeze(1) - self.centroids, p=2, dim=(2, 3))
         ## Q (batch_size , n_clusters)
-        Q = torch.pow((1 + (similarity / self.alpha_)), -(self.alpha_ + 1) / 2)
+        Q = torch.pow((1 + (dist / self.alpha_)), -(self.alpha_ + 1) / 2)
         sum_columns_Q = torch.sum(Q, dim=1).view(-1, 1)
         Q = Q / sum_columns_Q
 
