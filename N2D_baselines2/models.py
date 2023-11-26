@@ -245,7 +245,7 @@ class ClusterNet(nn.Module):
         # results = self.compute_similarity(z_np, z_np)
         
         assignements = AgglomerativeClustering(
-            n_clusters=10, linkage="complete", affinity="precomputed"
+            n_clusters= self.n_clusters, linkage="complete", affinity="precomputed"
         ).fit_predict(
             compute_similarity(z_np, z_np)
         )
@@ -278,10 +278,6 @@ class ClusterNet(nn.Module):
         # z = z.reshape((z.shape[1], z.shape[0]))
         # print("changed shape", z.unsqueeze(2).shape)
         z = z.unsqueeze(2)
-        
-        
-        print(z.shape)
-        print(self.centroids.shape)
         dist = torch.norm(z.unsqueeze(1) - self.centroids, p=2, dim=(2, 3))
         ## Q (batch_size , n_clusters)
         Q = torch.pow((1 + (dist / self.alpha_)), -(self.alpha_ + 1) / 2)

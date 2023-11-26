@@ -43,7 +43,7 @@ def data_prep(df, start = '2013-01-01', end = '2020-01-01', batch_size = 8):
     # Create the DataLoader
     train_loader = DataLoader(dataset, batch_size = batch_size, shuffle=True)
 
-    return np.array(batch_data), close_price_df, train_loader, stock_list
+    return np.array(batch_data), close_price_df, train_loader, stock_list, data_tensor
 
 
 def process_data(df):
