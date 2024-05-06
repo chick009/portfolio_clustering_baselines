@@ -15,6 +15,8 @@ def pretrain_autoencoder(trainloader, args, verbose=True):
 
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
+    else:
+        device = torch.device("cpu")  # Fallback to CPU if CUDA is not available
 
     first_batch = next(iter(trainloader))
     data = first_batch[0].to(device)
@@ -31,7 +33,7 @@ def pretrain_autoencoder(trainloader, args, verbose=True):
     optimizer = torch.optim.Adam(tae.parameters(), weight_decay = 0.0001)
     tae.train()
 
-    for epoch in range(100):
+    for epoch in range(10):
         all_loss = 0
         for batch_idx, inputs in enumerate(trainloader):
             inputs = inputs[0].to(torch.float32).to(device)
@@ -67,10 +69,10 @@ def train_ClusterNET(trainloader, trained_model, data_tensor, args):
     model.train()
     train_loss = 0
     # Training with the data
-    for epoch in range(50):
+    for epoch in range(10):
         all_loss = 0
         for batch_idx, inputs in enumerate(trainloader):
-            inputs = inputs[0].to(torch.float32).to('cuda:0')
+            inputs = inputs[0].to(torch.float32).to(args.device)
             optimizer.zero_grad()
             z, x_reconstr, Q, P = model(inputs)
 
@@ -90,6 +92,8 @@ def train_ClusterNET(trainloader, trained_model, data_tensor, args):
 def train_autoencoder(train_loader, model = None, model_name = 'tmp_auto_encoder', optimizer_choice = 'SGD', num_epochs = 100, patience = 10):
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
+    else:
+        device = torch.device("cpu")
 
     first_batch = next(iter(train_loader))
     data = first_batch[0].to(device)

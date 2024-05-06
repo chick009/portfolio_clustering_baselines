@@ -42,7 +42,7 @@ class TmpAutoEncoder(nn.Module):
 
             
     def forward(self, x):
-        x = x.to('cuda:0')
+        # x = x.to('cuda:0')
         hidden = self.encoder(x)
         output = self.decoder(hidden)
         return hidden, output

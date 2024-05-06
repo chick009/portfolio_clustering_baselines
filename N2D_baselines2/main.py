@@ -21,7 +21,7 @@ def get_args():
     args = argparse.ArgumentParser()
 
     args.add_argument('-bs', type=str, default='10')
-    args.add_argument('-epoch', type = int, default = 50)
+    args.add_argument('-epoch', type = int, default = 10)
     args.add_argument('-k', type = int, default = 10, help = 'num of cluster')
     args.add_argument('-n_clusters', type = int, default = 10, help = 'num of cluster')
     args.add_argument('-p', type = int, default = 6, help = 'patience for early stopping')
@@ -32,7 +32,7 @@ def get_args():
     args.add_argument('-similarity', type = str, default = 'EUC')
     args.add_argument('-n_hidden', type = int, default = 1, help = 'patience for early stopping')
     args.add_argument("-alpha", type=int, default=1, help="alpha hyperparameter for DTC model")
-    args.add_argument("-device", type=str, default='cuda:0', help="alpha hyperparameter for DTC model")
+    args.add_argument("-device", type=str, default='cpu', help="alpha hyperparameter for DTC model")
     args = args.parse_args()
     
     return args
@@ -84,16 +84,16 @@ def main():
             # ---------------- Performing Clustering using Deep Temporal Clustering -------------- #
             model_dtc = pretrain_autoencoder(train_loader, args)
             cluster_model = train_ClusterNET(train_loader, model_dtc, data_tensor, args)
-            z, x_reconstr, Q, P = cluster_model(data_tensor.to('cuda:0'))
+            z, x_reconstr, Q, P = cluster_model(data_tensor.to(args.device))
             preds = torch.max(Q, dim=1)[1]
             pred_dtc = preds.cpu().numpy()
             
             del model_dtc
             del cluster_model
             # ---------------- Performing Clustering using N2D Clustering -------------- #
-            model = train_autoencoder(train_loader, model, num_epochs = args.epoch, optimizer_choice = args.optim).to("cuda:0")
+            model = train_autoencoder(train_loader, model, num_epochs = args.epoch, optimizer_choice = args.optim).to(args.device)
             model = N2D(model, args.k)
-            hidden_repr, _ = model.encoder(data_tensor.to('cuda:0'))
+            hidden_repr, _ = model.encoder(data_tensor.to(args.device))
             hidden_repr = hidden_repr.to('cpu').detach().numpy()
             embedding = hidden_repr[:, -1, :]
             manifold = model.manifold(embedding)

@@ -228,7 +228,7 @@ class ClusterNet(nn.Module):
         self.alpha_ = args.alpha
         self.centr_size = args.n_hidden
         self.n_clusters = args.n_clusters
-        self.device = 'cuda:0'
+        self.device = args.device
         self.similarity = args.similarity
     
     def init_centroids(self, x):
@@ -236,7 +236,7 @@ class ClusterNet(nn.Module):
         This function initializes centroids with agglomerative clustering
         + complete linkage.
         """
-        x = x.to('cuda:0')
+        x = x.to(self.device)
 
         z, _ = self.tae(x)
  

@@ -8,7 +8,7 @@ class Encoder(nn.Module):
         if use_act:
             self.act = nn.ReLU()
         self.use_act = use_act
-         
+         # sda
     def forward(self, x):
         x = self.fc(x)
         if self.use_act:

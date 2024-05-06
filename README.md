@@ -8,14 +8,9 @@
 - [Background](#background)
 - [Installation](#install)
 - [Dataset](#dataset)
-- [File Description](#usage)
-	- [Generator](#generator)
-- [Badge](#badge)
-- [Example Readmes](#example-readmes)
-- [Related Efforts](#related-efforts)
-- [Maintainers](#maintainers)
-- [Contributing](#contributing)
-- [License](#license)
+- [Folder Description](#usage)
+- [Experiment](#run)
+
 
 ## Background 
 Our Final Year Projects proposed that financial data is in fact a path of time series, where we could extract the latent representation from the financial data, and perform time series tasks such as clustering
@@ -35,3 +30,21 @@ For both Dow Jones Index and S&P 500 Index, we provided three datasets,
 - setA: Contains only OHLCV financial data
 - setB: Contains OHLCV financial data and technical indicators like RSI, MACD, and SMA
 
+## Folder Description:
+- main.py: General flows from data preparation to generate results with config as argparse
+- data_prep.py: function for preparing the data
+
+- model.py: Deep Temporal Clustering model
+- tmp_auto_encoder.py: temporal auto-encoder models using LSTM
+- N2D.py: Not too deep clustering model
+
+- normal_clustering.py: clustering functions 
+- train_all.py: train all the selected models 
+- evals.py: evaluate the results of the model
+
+## Experiments:
+
+Run the shell code as of below, and we could adjust values in the main value with argparse module:
+```sh
+$ python main.py
+```
